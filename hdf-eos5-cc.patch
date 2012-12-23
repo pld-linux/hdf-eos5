@@ -1,0 +1,36 @@
+--- hdfeos5/configure.ac.orig	2009-05-19 18:12:48.000000000 +0200
++++ hdfeos5/configure.ac	2012-12-23 15:06:02.131632173 +0100
+@@ -268,23 +268,6 @@
+ 
+     AC_PROG_AWK
+ 
+-    AC_MSG_CHECKING([for h5cc])
+-    PURE_CC=""
+-    if ($CC -show &> /dev/null); then
+-	dnl Since CC can be "h5cc -Df2cFortran", arguments should be removed
+-	PURE_CC=`echo "$CC" | $AWK '{ split($1, array, " ") ; printf array[[1]] }'`
+-	AC_MSG_RESULT([$PURE_CC])
+-    else
+-	AC_MSG_RESULT([$CC])
+-	AC_MSG_ERROR([CC is not h5cc])
+-    fi
+-
+-    SZIP_CC=szip_cc
+-    cat $PURE_CC | $AWK '{ if ( $0 ~ /^LDFLAGS=\"(.*)/ ) { print substr($0, 1, 9) " -L'$szlib_lib' " substr($0, 10) } else  { print } } ' > $SZIP_CC
+-    chmod 755 $SZIP_CC
+-    saved_CC="$CC"
+-    CC=./$SZIP_CC
+-
+     AC_MSG_CHECKING([for szlib encoder])
+ 
+     AC_CACHE_VAL([he5_cv_szlib_functional],
+@@ -314,9 +297,6 @@
+         }
+         ], [he5_cv_szlib_can_encode=yes], [he5_cv_szlib_can_encode=no],)])
+ 
+-    CC="$saved_CC"
+-    rm -f $SZIP_CC
+-
+     if test ${he5_cv_szlib_functional} = "no"; then
+         he5_cv_szlib_can_encode=broken
+     else

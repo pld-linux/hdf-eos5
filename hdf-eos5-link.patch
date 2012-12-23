@@ -1,0 +1,43 @@
+--- hdfeos5/src/Makefile.am.orig	2007-03-29 18:59:47.000000000 +0200
++++ hdfeos5/src/Makefile.am	2012-12-23 16:17:19.668209682 +0100
+@@ -10,10 +10,10 @@
+ 
+ # Set LDFLAGS to allow the HDF-EOS library to use extern variables from
+ # HDF5
+-LDFLAGS=-Wl,-single_module
+ 
+ # Build HDF-EOS5
+ lib_LTLIBRARIES=libhe5_hdfeos.la
++libhe5_hdfeos_la_LIBADD=$(top_builddir)/gctp/src/libhe5_Gctp.la -lhdf5_hl -lhdf5
+ 
+ # Source files for library
+ libhe5_hdfeos_la_SOURCES=EHapi.c GDapi.c PTapi.c SWapi.c TSapi.c ZAapi.c
+--- hdfeos5/gctp/src/Makefile.am.orig	2012-12-23 16:17:10.788209866 +0100
++++ hdfeos5/gctp/src/Makefile.am	2012-12-23 16:17:06.164876631 +0100
+@@ -4,7 +4,7 @@
+ include $(top_srcdir)/config/include.am
+ 
+ # Library to build
+-lib_LTLIBRARIES = libGctp.la
++lib_LTLIBRARIES = libhe5_Gctp.la
+ 
+ ## Normally DEFAULT_INCLUDES is supplied by Automake, but one of the
+ ## directories included by default is $(top_builddir)/include, which
+@@ -17,7 +17,7 @@
+ INCLUDES=-I$(srcdir)/../include/
+ 
+ # Library source files
+-libGctp_la_SOURCES = gctp.c alberfor.c alberinv.c alconfor.c alconinv.c      \
++libhe5_Gctp_la_SOURCES = gctp.c alberfor.c alberinv.c alconfor.c alconinv.c      \
+           azimfor.c aziminv.c bceafor.c bceainv.c br_gctp.c ceafor.c         \
+           ceainv.c cproj.c eqconfor.c eqconinv.c equifor.c equiinv.c         \
+           for_init.c gnomfor.c gnominv.c goodfor.c goodinv.c gvnspfor.c      \
+--- hdfeos5/config/include.am.orig	2007-03-29 18:59:12.000000000 +0200
++++ hdfeos5/config/include.am	2012-12-23 16:25:47.688199095 +0100
+@@ -4,5 +4,5 @@
+ ## shared definitions.
+ 
+ LIBHDFEOS5=$(top_builddir)/src/libhe5_hdfeos.la
+-LIBGCTP=$(top_builddir)/gctp/src/libGctp.la
++LIBGCTP=$(top_builddir)/gctp/src/libhe5_Gctp.la
+ 
