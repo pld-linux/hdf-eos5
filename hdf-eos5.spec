@@ -97,6 +97,7 @@ CPPFLAGS="%{rpmcppflags} -DH5_USE_16_API"
 
 %{__make}
 
+# note: random failures occur when tests are executed in parallel, so use -j1
 %{?with_tests:%{__make} -j1 check}
 
 %install
