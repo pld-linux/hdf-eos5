@@ -7,7 +7,7 @@ Summary:	HDF-EOS 5 library
 Summary(pl.UTF-8):	Biblioteka HDF-EOS 5
 Name:		hdf-eos5
 Version:	5.1.14
-Release:	1
+Release:	2
 License:	MIT-like
 Group:		Libraries
 Source0:	ftp://edhs1.gsfc.nasa.gov/edhs/hdfeos5/latest_release/HDF-EOS%{version}.tar.Z
@@ -126,6 +126,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_libdir}/libhe5_hdfeos.so
 %{_libdir}/libhe5_Gctp.la
 %{_libdir}/libhe5_hdfeos.la
+%dir %{_includedir}/he5
 %{_includedir}/he5/HE5_GctpFunc.h
 %{_includedir}/he5/HE5_HdfEosDef.h
 %{_includedir}/he5/HE5_config.h
