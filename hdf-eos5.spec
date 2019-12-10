@@ -6,25 +6,29 @@
 Summary:	HDF-EOS 5 library
 Summary(pl.UTF-8):	Biblioteka HDF-EOS 5
 Name:		hdf-eos5
-Version:	5.1.15
-Release:	3
+Version:	5.1.16
+Release:	1
 License:	MIT-like
 Group:		Libraries
-Source0:	ftp://edhs1.gsfc.nasa.gov/edhs/hdfeos5/latest_release/HDF-EOS%{version}.tar.Z
-# Source0-md5:	5d607a13dd42e559bfc90e278a8ec919
+Source0:	https://observer.gsfc.nasa.gov/ftp/edhs/hdfeos5/latest_release/HDF-EOS%{version}.tar.Z
+# Source0-md5:	c4a3286f38a2faafc840017af4bd39d6
 # needed for auto* rebuild
-Source1:	ftp://edhs1.gsfc.nasa.gov/edhs/hdfeos5/latest_release/HDF-EOS%{version}_TESTDRIVERS.tar.Z
-# Source1-md5:	51d17fe1f0673d71f5a95ed2c4ffff30
+Source1:	https://observer.gsfc.nasa.gov/ftp/edhs/hdfeos5/latest_release/HDF-EOS%{version}_TESTDRIVERS.tar.Z
+# Source1-md5:	498ca8c6634c391d38e126450d8d218d
 Patch0:		%{name}-cc.patch
 Patch1:		%{name}-link.patch
 Patch2:		%{name}-tests.patch
+Patch3:		%{name}-types.patch
+Patch4:		%{name}-bufsize.patch
 URL:		http://hdfeos.org/software/library.php#HDF-EOS5
 BuildRequires:	autoconf >= 2.59
 BuildRequires:	automake
-BuildRequires:	hdf5-devel
+BuildRequires:	hdf5-devel >= 1.8.19
 BuildRequires:	libtool
-%{?with_szip:BuildRequires:	szip-devel}
+%{?with_szip:BuildRequires:	szip-devel >= 2.1.1}
 BuildRequires:	zlib-devel
+Requires:	hdf5 >= 1.8.19
+%{?with_szip:Requires:	szip >= 2.1.1}
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -52,8 +56,8 @@ Summary:	Header files for HDF-EOS 5 library
 Summary(pl.UTF-8):	Pliki nagłówkowe biblioteki HDF-EOS 5
 Group:		Development/Libraries
 Requires:	%{name} = %{version}-%{release}
-Requires:	hdf5-devel
-%{?with_szip:Requires:	szip-devel}
+Requires:	hdf5-devel >= 1.8.19
+%{?with_szip:Requires:	szip-devel >= 2.1.1}
 Requires:	zlib-devel
 
 %description devel
@@ -79,6 +83,8 @@ Statyczna biblioteka HDF-EOS 5.
 %patch0 -p1
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %build
 %{__libtoolize}

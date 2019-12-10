@@ -1,0 +1,999 @@
+--- hdfeos5/gctp/src/gctp.c.orig	2019-12-09 16:33:53.493125031 +0100
++++ hdfeos5/gctp/src/gctp.c	2019-12-09 16:33:57.559769667 +0100
+@@ -45,8 +45,8 @@
+ static long outdat[MAXPROJ + 1];	/* output dataum array		*/
+ static long outzn[MAXPROJ + 1];		/* output zone array		*/
+ static double pdout[MAXPROJ + 1][15]; 	/* output projection parm array	*/
+-static long (*for_trans[MAXPROJ + 1])();/* forward function pointer array*/
+-static long (*inv_trans[MAXPROJ + 1])();/* inverse function pointer array*/
++static int (*for_trans[MAXPROJ + 1])();/* forward function pointer array*/
++static int (*inv_trans[MAXPROJ + 1])();/* inverse function pointer array*/
+ 
+ 			/* Table of unit codes as specified by state
+ 			   laws as of 2/1/92 for NAD 1983 State Plane
+@@ -56,6 +56,13 @@
+ static long NADUT[134] = {1, 5, 1, 1, 5, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 2,
+ 			  1, 1, 5, 2, 1, 2, 5, 1, 2, 2, 2, 1, 1, 1, 5, 2, 1, 5,
+ 			  2, 2, 5, 2, 1, 1, 5, 2, 2, 1, 2, 1, 2, 2, 1, 2, 2, 2};
++
++int init(long ipr, long jpr, char *efile, char *pfile);
++long untfz(long inunit, long outunit, double *factor);
++void close_file(void);
++int inv_init(int insys, int inzone, double *inparm, int indatum, char *fn27, char *fn83, int *iflg, int (*inv_trans[])(double, double, double*, double*));
++int for_init(int outsys, int outzone, double *outparm, int outdatum, char *fn27, char *fn83, int *iflg, int (*for_trans[])(double, double, double *, double *));
++
+ /*
+ static long NAD83[134] = {101,102,5010,5300,201,202,203,301,302,401,402,403,
+                 404,405,406,0000,501,502,503,600,700,901,902,903,1001,1002,
+@@ -69,7 +76,7 @@
+                 4502,4601,4602,4701,4702,4801,4802,4803,4901,4902,4903,4904,
+                 5001,5002,5003,5004,5005,5006,5007,5008,5009,5200,0000,5400};
+ */
+-gctp(incoor,insys,inzone,inparm,inunit,indatum,ipr,efile,jpr,pfile,outcoor,
++int gctp(incoor,insys,inzone,inparm,inunit,indatum,ipr,efile,jpr,pfile,outcoor,
+      outsys,outzone,outparm,outunit,outdatum,fn27,fn83,iflg)
+ 
+ double *incoor;		/* input coordinates				*/
+@@ -258,10 +258,10 @@
+          dummy[0] = inparm[0];
+          dummy[1] = inparm[1];
+          }
+-      inv_init((int)*insys,(int)*inzone,dummy,(int)*indatum,fn27,fn83,&iflgval,(int *)inv_trans);
++      inv_init((int)*insys,(int)*inzone,dummy,(int)*indatum,fn27,fn83,&iflgval,inv_trans);
+       }
+    else
+-     inv_init((int)*insys,(int)*inzone,inparm,(int)*indatum,fn27,fn83,&iflgval,(int *)inv_trans);
++     inv_init((int)*insys,(int)*inzone,inparm,(int)*indatum,fn27,fn83,&iflgval,inv_trans);
+    *iflg=(long)iflgval;
+ 
+    if ((int)*iflg != 0)
+@@ -320,10 +320,10 @@
+ 	 dummy[0] = outparm[0];
+ 	 dummy[1] = outparm[1];
+ 	 }
+-      for_init((int)*outsys,(int)*outzone,dummy,(int)*outdatum,fn27,fn83,&iflgval,(int *)for_trans);
++      for_init((int)*outsys,(int)*outzone,dummy,(int)*outdatum,fn27,fn83,&iflgval,for_trans);
+       }
+    else
+-     for_init((int)*outsys,(int)*outzone,outparm,(int)*outdatum,fn27,fn83,&iflgval,(int *)for_trans);
++     for_init((int)*outsys,(int)*outzone,outparm,(int)*outdatum,fn27,fn83,&iflgval,for_trans);
+ 
+    *iflg=(long)iflgval;
+ 
+--- hdfeos5/gctp/src/br_gctp.c.orig	2006-12-07 16:52:24.000000000 +0100
++++ hdfeos5/gctp/src/br_gctp.c	2019-12-09 16:37:52.638496136 +0100
+@@ -1,7 +1,10 @@
++#include <stddef.h>
+ 
+ #ifdef unix
+ /*  Fortran bridge routine for the UNIX */
+ 
++int gctp(double *incoor, long *insys, long *inzone, double *inparm, long *inunit, long *indatum, long *ipr, char *efile, long *jpr, char *pfile, double *outcoor, long *outsys, long *outzone, double *outparm, long *outunit, long *outdatum, char fn27[], char fn83[], long *iflg);
++
+ void gctp_(incoor,insys,inzone,inparm,inunit,indatum,ipr,efile,jpr,pfile,
+                outcoor, outsys,outzone,outparm,outunit,fn27,fn83,iflg)
+ 
+@@ -20,11 +22,13 @@
+ long *outzone;
+ double *outparm;
+ long *outunit;
++char fn27[];
++char fn83[];
+ long *iflg;
+ 
+ {
+ gctp(incoor,insys,inzone,inparm,inunit,indatum,ipr,efile,jpr,pfile,outcoor,
+-     outsys,outzone,outparm,outunit,fn27,fn83,iflg);
++     outsys,outzone,outparm,outunit,NULL /* FIXME */,fn27,fn83,iflg);
+ 
+ return;
+ }
+--- hdfeos5/src/EHapi.c.orig	2017-11-13 17:02:41.000000000 +0100
++++ hdfeos5/src/EHapi.c	2019-12-10 05:33:39.956327678 +0100
+@@ -2222,7 +2222,7 @@
+   if (fid < HE5_EHIDOFFSET || fid > HE5_NEOSHDF + HE5_EHIDOFFSET)
+     {
+ 	  status = FAIL;
+-	  sprintf(errbuf,"Invalid file ID: %d. ID should range from %d to  %d .\n", fid, HE5_EHIDOFFSET, HE5_NEOSHDF + HE5_EHIDOFFSET);
++	  sprintf(errbuf,"Invalid file ID: %"PRId64". ID should range from %d to  %d .\n", fid, HE5_EHIDOFFSET, HE5_NEOSHDF + HE5_EHIDOFFSET);
+ 	  H5Epush(__FILE__, "HE5_EHchkfid", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf); 
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__); 
+     } 
+@@ -2234,7 +2234,7 @@
+ 	  if( HE5_HeosTable[ fid0 ].active == 0) 
+         {
+ 		  status = FAIL;
+-		  sprintf(errbuf,"HE5_EHchkid: File ID %d not active (%s).\n",fid, name);
++		  sprintf(errbuf,"HE5_EHchkid: File ID %"PRId64" not active (%s).\n",fid, name);
+ 		  H5Epush(__FILE__, "HE5_EHchkfid", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf); 
+ 		  HE5_EHprint(errbuf, __FILE__, __LINE__); 
+         }
+@@ -8615,7 +8615,7 @@
+   else
+     {
+       status = FAIL;
+-      sprintf(errbuf,"Invalid file ID: %d . ID should range from %d to %d . \n", fid, HE5_EHIDOFFSET, HE5_NEOSHDF + HE5_EHIDOFFSET);
++      sprintf(errbuf,"Invalid file ID: %"PRId64" . ID should range from %d to %d . \n", fid, HE5_EHIDOFFSET, HE5_NEOSHDF + HE5_EHIDOFFSET);
+       H5Epush(__FILE__,  "HE5_EHclose", __LINE__, H5E_FILE, H5E_BADFILE, errbuf); 
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+     }
+@@ -12023,7 +12023,7 @@
+   if( HE5_HeosTable[ fid0 ].active == 0) 
+     {
+       status = FAIL;
+-      sprintf(errbuf,"HE5_EHwritemeta: File ID %d not active \n",fid);
++      sprintf(errbuf,"HE5_EHwritemeta: File ID %"PRId64" not active \n",fid);
+       H5Epush(__FILE__, "HE5_EHwritemeta", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf); 
+       HE5_EHprint(errbuf, __FILE__, __LINE__); 
+     }
+@@ -12295,7 +12295,7 @@
+   if( HE5_HeosTable[ fid0 ].active == 0) 
+     {
+       status = FAIL;
+-      sprintf(errbuf,"HE5_EHreadmeta: File ID %d not active \n",fid);
++      sprintf(errbuf,"HE5_EHreadmeta: File ID %"PRId64" not active \n",fid);
+       H5Epush(__FILE__, "HE5_EHreadmeta", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf); 
+       HE5_EHprint(errbuf, __FILE__, __LINE__); 
+     }
+@@ -12605,7 +12605,7 @@
+   if( HE5_HeosTable[ fid0 ].active == 0) 
+     {
+       status = FAIL;
+-      sprintf(errbuf,"HE5_EHreadmeta: File ID %d not active \n",fid);
++      sprintf(errbuf,"HE5_EHreadmeta: File ID %"PRId64" not active \n",fid);
+       H5Epush(__FILE__, "HE5_EHreadmeta", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf); 
+       HE5_EHprint(errbuf, __FILE__, __LINE__); 
+     }
+--- hdfeos5/src/GDapi.c.orig	2017-11-13 17:02:42.000000000 +0100
++++ hdfeos5/src/GDapi.c	2019-12-10 05:32:50.266596870 +0100
+@@ -7847,6 +7847,10 @@
+ 
+ 
+ 
++herr_t
++HE5_GDsetdimscale2(hid_t gridID, char *fieldname, char *dimname,
++		   char *dimscalename, const hsize_t dimsize, 
++		   hid_t numbertype_in, void * data);
+ 
+ 
+ /*----------------------------------------------------------------------------|
+@@ -17274,7 +17278,7 @@
+   if (regionID < 0 || regionID >= HE5_NGRIDREGN)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "Invalid Region ID: %d.\n", regionID);
++      sprintf(errbuf, "Invalid Region ID: %"PRId64".\n", regionID);
+       H5Epush(__FILE__, "HE5_GDregioninfo", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       free(errbuf);
+@@ -17289,7 +17293,7 @@
+   if (HE5_GDXRegion[regionID] == 0)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "Inactive Region ID: %d.\n", regionID);
++      sprintf(errbuf, "Inactive Region ID: %"PRId64".\n", regionID);
+       H5Epush(__FILE__, "HE5_GDregioninfo", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       free(errbuf);
+@@ -17792,7 +17796,7 @@
+   if (regionID < 0 || regionID >= HE5_NGRIDREGN)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "Invalid Region id: %d.\n", regionID);
++      sprintf(errbuf, "Invalid Region id: %"PRId64".\n", regionID);
+       H5Epush(__FILE__, "HE5_GDextractregion", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       free(errbuf);
+@@ -17806,7 +17810,7 @@
+   if (HE5_GDXRegion[regionID] == 0)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "Inactive Region ID: %d.\n", regionID);
++      sprintf(errbuf, "Inactive Region ID: %"PRId64".\n", regionID);
+       H5Epush(__FILE__,  "HE5_GDextractregion", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       free(errbuf);
+--- hdfeos5/src/PTapi.c.orig	2017-11-13 17:02:43.000000000 +0100
++++ hdfeos5/src/PTapi.c	2019-12-10 16:35:37.164494445 +0100
+@@ -821,7 +821,7 @@
+ 	      status = HE5_PTgetlevelname_fromSM(pointID, i, LevelName);
+ 	      if ( status == FAIL )
+ 		{
+-		  sprintf(errbuf, "Failed to get LevelName for the Level_%d.",i) ;
++		  sprintf(errbuf, "Failed to get LevelName for the Level_%"PRId64".",i) ;
+ 		  H5Epush(__FILE__, "HE5_PTattach", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+ 		  HE5_EHprint(errbuf, __FILE__, __LINE__);
+ 			  
+@@ -1188,7 +1188,7 @@
+   nlevels = HE5_PTnlevels(pointID);
+   if (nlevels == 0)
+     {
+-      sprintf(errbuf, "No Levels Defined for point ID: %d\n", pointID);
++      sprintf(errbuf, "No Levels Defined for point ID: %"PRId64"\n", pointID);
+       H5Epush(__FILE__, "HE5_PTnrecs", __LINE__, H5E_BTREE, H5E_NOTFOUND, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(0);
+@@ -1197,7 +1197,7 @@
+     {
+       /* Report error if level # to large */
+       /* -------------------------------- */
+-      sprintf(errbuf, "Only %d levels Defined for point ID: %d\n", nlevels, pointID);
++      sprintf(errbuf, "Only %d levels Defined for point ID: %"PRId64"\n", nlevels, pointID);
+       H5Epush(__FILE__, "HE5_PTnrecs", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(0);
+@@ -1655,7 +1655,7 @@
+   if (nlevels == 0)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "No Levels Defined for point ID: %d\n", pointID);
++      sprintf(errbuf, "No Levels Defined for point ID: %"PRId64"\n", pointID);
+       H5Epush(__FILE__, "HE5_PTnfields", __LINE__, H5E_BTREE, H5E_NOTFOUND, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -1665,7 +1665,7 @@
+       /* Report error if level # too large */
+       /* --------------------------------- */
+       status = FAIL;
+-      sprintf(errbuf, "Only %d levels Defined for point ID: %d\n", nlevels, pointID);
++      sprintf(errbuf, "Only %d levels Defined for point ID: %"PRId64"\n", nlevels, pointID);
+       H5Epush(__FILE__, "HE5_PTnfields", __LINE__, H5E_ARGS, H5E_BADRANGE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -1844,7 +1844,7 @@
+       if (nlevels == 0)
+ 	{
+ 	  status = FAIL;
+-	  sprintf(errbuf, "No Levels Defined for point ID: %d\n", pointID);
++	  sprintf(errbuf, "No Levels Defined for point ID: %"PRId64"\n", pointID);
+ 	  H5Epush(__FILE__, "HE5_PTgetlevelname", __LINE__, H5E_BTREE, H5E_NOTFOUND, errbuf);
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+             
+@@ -1854,7 +1854,7 @@
+ 	  /* Report error if level # to large */
+ 	  /* -------------------------------- */
+ 	  status = FAIL;
+-	  sprintf(errbuf, "Only %d levels Defined for point ID: %d\n", nlevels, pointID);
++	  sprintf(errbuf, "Only %d levels Defined for point ID: %"PRId64"\n", nlevels, pointID);
+ 	  H5Epush(__FILE__, "HE5_PTgetlevelname", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+ 	}
+@@ -3049,7 +3049,7 @@
+   if (nlevels == 0)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "No Levels Defined for point ID: %d\n", pointID);
++      sprintf(errbuf, "No Levels Defined for point ID: %"PRId64"\n", pointID);
+       H5Epush(__FILE__, "HE5_PTwritelevel",   __LINE__, H5E_BTREE, H5E_NOTFOUND, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -3059,7 +3059,7 @@
+       /* Report error if level # to large */
+       /* -------------------------------- */
+       status = FAIL;
+-      sprintf(errbuf, "Only %d levels Defined for point ID: %d\n", nlevels, pointID);
++      sprintf(errbuf, "Only %d levels Defined for point ID: %"PRId64"\n", nlevels, pointID);
+       H5Epush(__FILE__, "HE5_PTwritelevel", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -3488,7 +3488,7 @@
+   nlevels = HE5_PTnlevels(pointID);
+   if (nlevels == 0)
+     {
+-      sprintf(errbuf, "No Levels Defined for point ID: %d\n", pointID);
++      sprintf(errbuf, "No Levels Defined for point ID: %"PRId64"\n", pointID);
+       H5Epush(__FILE__, "HE5_PTlevelinfo", __LINE__, H5E_BTREE, H5E_NOTFOUND, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(FAIL);
+@@ -3497,7 +3497,7 @@
+     {
+       /* Report error if level # to large */
+       /* -------------------------------- */
+-      sprintf(errbuf, "Only %d levels Defined for point ID: %d\n", nlevels, pointID);
++      sprintf(errbuf, "Only %d levels Defined for point ID: %"PRId64"\n", nlevels, pointID);
+       H5Epush(__FILE__, "HE5_PTlevelinfo", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(FAIL);
+@@ -3915,7 +3915,7 @@
+   if (nlevels == 0)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "No Levels Defined for point ID: %d\n", pointID);
++      sprintf(errbuf, "No Levels Defined for point ID: %"PRId64"\n", pointID);
+       H5Epush(__FILE__, "HE5_PTreadlevel", __LINE__, H5E_BTREE, H5E_NOTFOUND, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -3925,7 +3925,7 @@
+       /* Report error if level # to large */
+       /* -------------------------------- */
+       status = FAIL;
+-      sprintf(errbuf, "Only %d levels Defined for point ID: %d\n", nlevels, pointID);
++      sprintf(errbuf, "Only %d levels Defined for point ID: %"PRId64"\n", nlevels, pointID);
+       H5Epush(__FILE__, "HE5_PTreadlevel", __LINE__, H5E_FILE, H5E_SEEKERROR, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -9099,7 +9099,7 @@
+   if (nlevels == 0)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "No Levels Defined for point ID: %d\n", pointID);
++      sprintf(errbuf, "No Levels Defined for point ID: %"PRId64"\n", pointID);
+       H5Epush(__FILE__, "HE5_PTreadlevel_f", __LINE__, H5E_BTREE, H5E_NOTFOUND, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -9109,7 +9109,7 @@
+       /* Report error if level # to large */
+       /* -------------------------------- */
+       status = FAIL;
+-      sprintf(errbuf, "Only %d levels Defined for point ID: %d\n", nlevels, pointID);
++      sprintf(errbuf, "Only %d levels Defined for point ID: %"PRId64"\n", nlevels, pointID);
+       H5Epush(__FILE__, "HE5_PTreadlevel_f", __LINE__, H5E_FILE, H5E_SEEKERROR, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -9513,7 +9513,7 @@
+   if (nlevels == 0)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "No Levels Defined for point ID: %d\n", pointID);
++      sprintf(errbuf, "No Levels Defined for point ID: %"PRId64"\n", pointID);
+       H5Epush(__FILE__, "HE5_PTwritelevel_f", __LINE__, H5E_BTREE, H5E_NOTFOUND, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -9523,7 +9523,7 @@
+       /* Report error if level # to large */
+       /* -------------------------------- */
+       status = FAIL;
+-      sprintf(errbuf, "Only %d levels Defined for point ID: %d\n", nlevels, pointID);
++      sprintf(errbuf, "Only %d levels Defined for point ID: %"PRId64"\n", nlevels, pointID);
+       H5Epush(__FILE__, "HE5_PTwritelevel_f", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+--- hdfeos5/src/SWapi.c.orig	2019-12-10 16:45:34.831256606 +0100
++++ hdfeos5/src/SWapi.c	2019-12-10 16:45:38.444570365 +0100
+@@ -2020,6 +2020,9 @@
+   return(status);
+ }
+ 
++herr_t
++HE5_SWsetdimscale2(hid_t swathID, char *fieldname, char *dimname, char *dimscalename,
++		  const hsize_t dimsize, hid_t numbertype_in, void * data);
+ 
+ /*----------------------------------------------------------------------------|
+ |  BEGIN_PROLOG                                                               |
+@@ -13361,7 +13364,7 @@
+ 
+ 		      if ((HE5_SWXRegion[k]->nRegions) > HE5_MAXNREGIONS)
+ 			{
+-			  sprintf(errbuf, "HE5_SWXRegion[%d]->nRegions exceeded HE5_MAXNREGIONS = %d.\n", k, HE5_MAXNREGIONS);
++			  sprintf(errbuf, "HE5_SWXRegion[%"PRId64"]->nRegions exceeded HE5_MAXNREGIONS = %d.\n", k, HE5_MAXNREGIONS);
+ 			  H5Epush(__FILE__, "HE5_SWdefboxregion", __LINE__, H5E_ARGS, H5E_BADRANGE, errbuf);
+ 			  HE5_EHprint(errbuf, __FILE__, __LINE__);
+ 			  if (lonArr != NULL) free(lonArr);
+@@ -14685,7 +14688,7 @@
+       if (regionID < 0 || regionID >= HE5_NSWATHREGN)
+         {
+ 	  status = FAIL;
+-	  sprintf(errbuf, "Invalid Region ID: %d.\n", regionID);
++	  sprintf(errbuf, "Invalid Region ID: %"PRId64".\n", regionID);
+ 	  H5Epush(__FILE__, "HE5_SWextractregion", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+         }
+@@ -14698,7 +14701,7 @@
+       if (HE5_SWXRegion[regionID] == 0)
+         {
+ 	  status = FAIL;
+-	  sprintf(errbuf, "Inactive Region ID: %d.\n", regionID);
++	  sprintf(errbuf, "Inactive Region ID: %"PRId64".\n", regionID);
+ 	  H5Epush(__FILE__, "HE5_SWextractregion", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+         }
+@@ -16253,7 +16256,7 @@
+       if (regionID < 0 || regionID >= HE5_NSWATHREGN)
+         {
+ 	  status = FAIL;
+-	  sprintf(errbuf, "Invalid Region id: %d.\n", regionID);
++	  sprintf(errbuf, "Invalid Region id: %"PRId64".\n", regionID);
+ 	  H5Epush(__FILE__, "HE5_SWregioninfo", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+         }
+@@ -16266,7 +16269,7 @@
+       if (HE5_SWXRegion[regionID] == 0)
+         {
+ 	  status = FAIL;
+-	  sprintf(errbuf,"Inactive Region ID: %d.\n", regionID);
++	  sprintf(errbuf,"Inactive Region ID: %"PRId64".\n", regionID);
+ 	  H5Epush(__FILE__, "HE5_SWregioninfo", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+         }
+@@ -16733,7 +16736,7 @@
+       if (regionID < 0 || regionID >= HE5_NSWATHREGN)
+         {
+ 	  status = FAIL;
+-	  sprintf(errbuf, "Invalid Region ID: %d.\n", regionID);
++	  sprintf(errbuf, "Invalid Region ID: %"PRId64".\n", regionID);
+ 	  H5Epush(__FILE__, "HE5_SWupdatescene", __LINE__, H5E_ARGS, H5E_BADRANGE, errbuf); 
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+         }
+@@ -16746,7 +16749,7 @@
+       if (HE5_SWXRegion[regionID] == 0)
+         {
+ 	  status = FAIL;
+-	  sprintf(errbuf, "Inactive Region ID: %d.\n", regionID);
++	  sprintf(errbuf, "Inactive Region ID: %"PRId64".\n", regionID);
+ 	  H5Epush(__FILE__, "HE5_SWupdatescene", __LINE__, H5E_ARGS, H5E_BADRANGE, errbuf);
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+         }
+@@ -16775,7 +16778,7 @@
+ 		  free(HE5_SWXRegion[regionID]);
+ 		  HE5_SWXRegion[regionID] = 0;
+ 		  status = FAIL;
+-		  sprintf(errbuf, "Inactive Region ID: %d.\n", regionID);
++		  sprintf(errbuf, "Inactive Region ID: %"PRId64".\n", regionID);
+ 		  H5Epush(__FILE__, "HE5_SWupdatescene", __LINE__, H5E_ARGS, H5E_BADRANGE, errbuf);
+ 		  HE5_EHprint(errbuf, __FILE__, __LINE__);
+ 		  break;
+@@ -16894,7 +16897,7 @@
+       if (regionID < 0 || regionID >= HE5_NSWATHREGN)
+         {
+ 	  status = FAIL;
+-	  sprintf(errbuf,"Invalid Region id: %d.\n", regionID);
++	  sprintf(errbuf,"Invalid Region id: %"PRId64".\n", regionID);
+ 	  H5Epush(__FILE__, "HE5_SWupdateidxmap", __LINE__, H5E_ARGS, H5E_BADRANGE, errbuf); 
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+         }
+@@ -16907,7 +16910,7 @@
+       if (HE5_SWXRegion[regionID] == 0)
+         {
+ 	  status = FAIL;
+-	  sprintf(errbuf, "Inactive Region ID: %d.\n", regionID);
++	  sprintf(errbuf, "Inactive Region ID: %"PRId64".\n", regionID);
+ 	  H5Epush(__FILE__, "HE5_SWupdateidxmap", __LINE__, H5E_FILE, H5E_BADRANGE, errbuf );
+ 	  HE5_EHprint(errbuf, __FILE__, __LINE__);
+         }
+@@ -23662,7 +23665,7 @@
+   if (regionID < 0 || regionID >= HE5_NSWATHREGN)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "Invalid Region ID: %d.\n", regionID);
++      sprintf(errbuf, "Invalid Region ID: %"PRId64".\n", regionID);
+       H5Epush(__FILE__, "HE5_SWindexinfo", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+@@ -23673,7 +23676,7 @@
+   if (HE5_SWXRegion[regionID] == 0)
+     {
+       status = FAIL;
+-      sprintf(errbuf, "Inactive Region ID: %d.\n", regionID);
++      sprintf(errbuf, "Inactive Region ID: %"PRId64".\n", regionID);
+       H5Epush(__FILE__, "HE5_SWindexinfo", __LINE__, H5E_ARGS, H5E_BADVALUE, errbuf);
+       HE5_EHprint(errbuf, __FILE__, __LINE__);
+       return(status);
+--- hdfeos5/src/ZAapi.c.orig	2017-11-13 17:02:46.000000000 +0100
++++ hdfeos5/src/ZAapi.c	2019-12-10 16:46:27.564304260 +0100
+@@ -1275,6 +1275,9 @@
+   return(status);
+ }
+ 
++herr_t
++HE5_ZAsetdimscale2(hid_t zaID, char *fieldname, char *dimname, char *dimscalename,
++		  const hsize_t dimsize, hid_t numbertype_in, void * data);
+ 
+ /*----------------------------------------------------------------------------|
+ |  BEGIN_PROLOG                                                               |
+--- hdfeos5/samples/he5_gd_datainfo.c.orig	2001-07-11 00:11:08.000000000 +0200
++++ hdfeos5/samples/he5_gd_datainfo.c	2019-12-10 16:47:13.027391299 +0100
+@@ -26,10 +26,10 @@
+   size_t       size       = 0;
+ 
+   fid = HE5_GDopen(FILENAME, H5F_ACC_RDONLY);
+-  printf("File ID returned by HE5_GDopen() :         %d \n", fid);
++  printf("File ID returned by HE5_GDopen() :         %"PRId64" \n", fid);
+     
+   GDid = HE5_GDattach(fid, OBJECT);
+-  printf("Grid ID returned by HE5_GDattach() :       %d \n", GDid);
++  printf("Grid ID returned by HE5_GDattach() :       %"PRId64" \n", GDid);
+ 
+   fieldgroup = HE5_HDFE_DATAGROUP;
+   status = HE5_GDinqdatatype(GDid, FIELDNAME, NULL, fieldgroup, &datatype, &classid, &order, &size);
+--- hdfeos5/samples/he5_gd_defunlimfld.c.orig	2014-01-14 18:00:21.000000000 +0100
++++ hdfeos5/samples/he5_gd_defunlimfld.c	2019-12-10 16:48:23.313677192 +0100
+@@ -49,7 +49,7 @@
+   if (gdfid != FAIL)
+     {
+ 	  GDid1 = HE5_GDattach(gdfid, "UTMGrid");
+-	  printf("Grid ID returned by HE5_GDattach(,\"UTMGrid\"):      %d\n", GDid1);
++	  printf("Grid ID returned by HE5_GDattach(,\"UTMGrid\"):      %"PRId64"\n", GDid1);
+ 	
+ 	  /* Define appendable field "Vegetation"  */
+ 	  tilerank    = 2;
+@@ -67,7 +67,7 @@
+ 	  printf("Status returned by HE5_GDdeffield(\"Vegetation\"):   %d\n", status);
+ 	
+ 	  GDid2 = HE5_GDattach(gdfid, "PolarGrid");
+-	  printf("Grid ID returned by HE5_GDattach(\"PolarGrid\"):     %d\n", GDid2);
++	  printf("Grid ID returned by HE5_GDattach(\"PolarGrid\"):     %"PRId64"\n", GDid2);
+ 
+ 	  status = HE5_GDdeffield(GDid2, "Temperature", "YDim,XDim", NULL, H5T_NATIVE_FLOAT, 0);
+ 	  printf("Status returned by HE5_GDdeffield(\"Temperature\"):  %d\n", status);
+--- hdfeos5/samples/he5_gd_setup.c.orig	2001-07-11 00:13:46.000000000 +0200
++++ hdfeos5/samples/he5_gd_setup.c	2019-12-10 16:49:04.463454265 +0100
+@@ -64,7 +64,7 @@
+   ydim = 200;
+     
+   GDid   = HE5_GDcreate(gdfid, "UTMGrid", xdim, ydim, uplft, lowrgt);
+-  printf("Grid ID returned by HE5_GDcreate :                    %d \n", GDid);
++  printf("Grid ID returned by HE5_GDcreate :                    %"PRId64" \n", GDid);
+ 
+   status = HE5_GDdefproj(GDid, HE5_GCTP_UTM, zonecode, spherecode, projparm);
+   printf("status returned by HE5_GDdefproj(...\"HE5_GCTP_UTM\"...) :  %d \n", status);
+@@ -108,7 +108,7 @@
+   ydim = 100;
+ 
+   GDid2  = HE5_GDcreate(gdfid, "PolarGrid", xdim, ydim, NULL, NULL);
+-  printf("Grid ID returned by HE5_GDcreate() :                  %d \n", GDid2);
++  printf("Grid ID returned by HE5_GDcreate() :                  %"PRId64" \n", GDid2);
+ 
+   status = HE5_GDdefproj(GDid2, HE5_GCTP_PS, dummy, spherecode, projparm);
+   printf("status returned by HE5_GDdefproj(...\"HE5_GCTP_PS\"...) :   %d \n", status);
+@@ -137,7 +137,7 @@
+   lowrgt[1] = HE5_EHconvAng(20., HE5_HDFE_DEG_DMS);
+     
+   GDid3  = HE5_GDcreate(gdfid, "GEOGrid", xdim, ydim, uplft, lowrgt);
+-  printf("Grid ID returned by HE5_GDcreate() :                  %d \n", GDid3);
++  printf("Grid ID returned by HE5_GDcreate() :                  %"PRId64" \n", GDid3);
+ 
+   status = HE5_GDdefproj(GDid3, HE5_GCTP_GEO, dummy, dummy, NULL);
+   printf("status returned by HE5_GDdefproj(...\"HE5_GCTP_GEO\"...) :  %d \n", status);
+--- hdfeos5/samples/he5_gd_subset.c.orig	2003-02-12 20:30:50.000000000 +0100
++++ hdfeos5/samples/he5_gd_subset.c	2019-12-10 16:49:21.156697163 +0100
+@@ -53,7 +53,7 @@
+ 		  cornerlon[1] = 90.;  cornerlat[1] = 0.;
+ 
+ 		  regionID = HE5_GDdefboxregion(GDid, cornerlon, cornerlat);
+-		  printf("Region ID returned by HE5_GDdefboxregion() :    %d \n", regionID);
++		  printf("Region ID returned by HE5_GDdefboxregion() :    %"PRId64" \n", regionID);
+ 
+ 		  ntype = (hid_t *)calloc(1, sizeof(hid_t));    
+ 		  status = HE5_GDregioninfo(GDid, regionID, "Temperature", ntype,&rank, dims, &size, upleft, lowright);
+--- hdfeos5/samples/he5_pt_datainfo.c.orig	2001-07-11 00:16:30.000000000 +0200
++++ hdfeos5/samples/he5_pt_datainfo.c	2019-12-10 16:49:46.643225757 +0100
+@@ -26,10 +26,10 @@
+   size_t       size     = 0;
+ 
+   fid = HE5_PTopen(FILENAME, H5F_ACC_RDONLY);
+-  printf("File ID returned by HE5_PTopen() :        %d \n", fid);
++  printf("File ID returned by HE5_PTopen() :        %"PRId64" \n", fid);
+     
+   PTid = HE5_PTattach(fid, OBJECT);
+-  printf("Point ID returned by HE5_PTattach() :     %d \n", PTid);
++  printf("Point ID returned by HE5_PTattach() :     %"PRId64" \n", PTid);
+ 
+   fieldgroup = HE5_HDFE_DATAGROUP;
+   status = HE5_PTinqdatatype(PTid, "Observations", NULL, fieldgroup, &datatype, &classid, &order, &size);
+--- hdfeos5/samples/he5_pt_definelevels.c.orig	2001-07-11 00:16:43.000000000 +0200
++++ hdfeos5/samples/he5_pt_definelevels.c	2019-12-10 16:50:03.936465405 +0100
+@@ -378,7 +378,7 @@
+ 	}
+   else 
+     {
+-	  printf("File ID returned by HE5_PTopen() : %d \n", ptfid);
++	  printf("File ID returned by HE5_PTopen() : %"PRId64" \n", ptfid);
+     }
+   
+   return 0;
+--- hdfeos5/samples/he5_pt_readattrs.c.orig	2003-03-06 20:47:27.000000000 +0100
++++ hdfeos5/samples/he5_pt_readattrs.c	2019-12-10 16:50:59.759496319 +0100
+@@ -29,10 +29,10 @@
+   /* Open the HDF-EOS file, "Point.h5" */
+   /* --------------------------------- */
+   ptfid = HE5_PTopen("Point.h5", H5F_ACC_RDONLY);
+-  printf("File ID returned by HE5_PTopen() :       %d \n", ptfid);
++  printf("File ID returned by HE5_PTopen() :       %"PRId64" \n", ptfid);
+ 
+   PTid = HE5_PTattach(ptfid, "FixedBuoy Point");
+-  printf("Point ID returned by HE5_PTattach() :    %d \n", PTid);
++  printf("Point ID returned by HE5_PTattach() :    %"PRId64" \n", PTid);
+ 
+   nt = (hid_t *)calloc(1, sizeof(hid_t));
+ 
+--- hdfeos5/samples/he5_pt_readdata.c.orig	2001-07-11 00:17:10.000000000 +0200
++++ hdfeos5/samples/he5_pt_readdata.c	2019-12-10 16:51:49.905891319 +0100
+@@ -46,12 +46,12 @@
+   /* Open the HDF-EOS file, "Point.h5" */
+   /* --------------------------------- */
+   ptfid = HE5_PTopen("Point.h5", H5F_ACC_RDONLY);
+-  printf("File ID returned by HE5_PTopen() :           %d \n", ptfid);
++  printf("File ID returned by HE5_PTopen() :           %"PRId64" \n", ptfid);
+ 
+   /* Read Simple Point */
+   /* ----------------- */
+   PTid = HE5_PTattach(ptfid, "Simple Point");
+-  printf("Point ID returned by HE5_PTattach() :        %d \n", PTid);
++  printf("Point ID returned by HE5_PTattach() :        %"PRId64" \n", PTid);
+ 
+   /* Get level information */
+   /* --------------------- */
+@@ -64,7 +64,7 @@
+ 	{
+ 	  printf("Field name:                  %s \n", level.fieldname[i]);
+ 	  printf("Field rank:                  %d \n", level.rank[i]);
+-	  printf("Field type ID:               %d \n", level.dtype[i]);
++	  printf("Field type ID:               %"PRId64" \n", level.dtype[i]);
+ 	  for (j = 0; j < level.rank[i]; j++)
+ 		printf("Field dims:                  %d \n", (int)level.dims[i][j]);
+ 	  printf("Field class:                 %d \n", level.dclass[i]);
+@@ -170,7 +170,7 @@
+   printf("Status returned by HE5_PTdetach() :          %d \n", status);
+     
+   PTid = HE5_PTattach(ptfid, "FixedBuoy Point");
+-  printf("Point ID returned by HE5_PTattach() :        %d \n", PTid);
++  printf("Point ID returned by HE5_PTattach() :        %"PRId64" \n", PTid);
+ 
+   /* Read Fixed Buoy Point Attributes */
+   /* -------------------------------- */
+--- hdfeos5/samples/he5_pt_writeattrs.c.orig	2001-07-11 00:17:49.000000000 +0200
++++ hdfeos5/samples/he5_pt_writeattrs.c	2019-12-10 16:52:30.835669584 +0100
+@@ -27,12 +27,12 @@
+   /* Open the HDF-EOS file, "Point.h5" */
+   /* --------------------------------- */
+   ptfid = HE5_PTopen("Point.h5", H5F_ACC_RDWR);
+-  printf("File ID returned by HE5_PTopen() :         %d \n", ptfid);
++  printf("File ID returned by HE5_PTopen() :         %"PRId64" \n", ptfid);
+ 
+   /* Write attribute to "Fixed Buoy Point" */
+   /* ------------------------------------- */
+   PTid = HE5_PTattach(ptfid, "FixedBuoy Point");
+-  printf("Point ID returned by HE5_PTattach() :      %d \n", PTid);
++  printf("Point ID returned by HE5_PTattach() :      %"PRId64" \n", PTid);
+ 
+   count[0] = 1;
+   status = HE5_PTwriteattr(PTid, "GlobalAttribute_int", H5T_NATIVE_INT, count, &attr);
+@@ -51,7 +51,7 @@
+   /* Write attributes to "Floating Buoy Point" */
+   /* ----------------------------------------- */
+   PTid = HE5_PTattach(ptfid, "FloatBuoy Point");
+-  printf("Point ID returned by HE5_PTattach() :      %d \n", PTid);
++  printf("Point ID returned by HE5_PTattach() :      %"PRId64" \n", PTid);
+ 
+   count[0] = 1;    
+   status = HE5_PTwriteattr(PTid, "GlobalAttribute_float", H5T_NATIVE_FLOAT, count, &flt);
+--- hdfeos5/samples/he5_sw_datainfo.c.orig	2003-12-01 20:24:51.000000000 +0100
++++ hdfeos5/samples/he5_sw_datainfo.c	2019-12-10 16:57:35.334019975 +0100
+@@ -31,12 +31,12 @@
+   /* Open the HDF-EOS swath file */
+   /* --------------------------- */
+   fid = HE5_SWopen(FILENAME, H5F_ACC_RDONLY);
+-  printf("File ID returned by HE5_SWopen() :         %d \n", fid);
++  printf("File ID returned by HE5_SWopen() :         %"PRId64" \n", fid);
+     
+   /* Attach to the "Swath1" swath */
+   /* ---------------------------- */
+   SWid = HE5_SWattach(fid, OBJECT);
+-  printf("Swath ID returned by HE5_SWattach() :      %d \n", SWid);
++  printf("Swath ID returned by HE5_SWattach() :      %"PRId64" \n", SWid);
+ 
+   /* Inquire data type information for the "Spectra" field */
+   /* ----------------------------------------------------- */
+@@ -45,7 +45,7 @@
+   printf("Status returned by HE5_SWinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+@@ -58,7 +58,7 @@
+   printf("Status returned by HE5_SWinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+@@ -70,7 +70,7 @@
+   printf("Status returned by HE5_EHinqglbdatatype() :  %d \n", status);
+   if (status != FAIL)
+         {
+-          printf("\tdatatype:    %d \n", datatype);
++          printf("\tdatatype:    %"PRId64" \n", datatype);
+           printf("\tclass ID:    %d \n", classid);
+           printf("\torder:       %d \n", order);
+           printf("\tsize:        %d \n", (int)size);
+@@ -80,7 +80,7 @@
+   printf("Status returned by HE5_EHinqglbdatatype()->GLOBAL_DOUBLE_ATTR_1  :  %d \n", status);
+   if (status != FAIL)
+         {
+-          printf("\tdatatype:    %d \n", datatype);
++          printf("\tdatatype:    %"PRId64" \n", datatype);
+           printf("\tclass ID:    %d \n", classid);
+           printf("\torder:       %d \n", order);
+           printf("\tsize:        %d \n", (int)size);
+@@ -92,7 +92,7 @@
+   printf("Status returned by HE5_SWinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+@@ -102,7 +102,7 @@
+   printf("Status returned by HE5_SWinqdatatype()->GLOBAL_CHAR_ATTR_11 :   %d \n", status);
+   if (status != FAIL)
+         {
+-          printf("\tdatatype:    %d \n", datatype);
++          printf("\tdatatype:    %"PRId64" \n", datatype);
+           printf("\tclass ID:    %d \n", classid);
+           printf("\torder:       %d \n", order);
+           printf("\tsize:        %d \n", (int)size);
+@@ -112,7 +112,7 @@
+   printf("Status returned by HE5_SWinqdatatype()->GLOBAL_CHAR_ATTR :   %d \n", status);
+   if (status != FAIL)
+         {
+-          printf("\tdatatype:    %d \n", datatype);
++          printf("\tdatatype:    %"PRId64" \n", datatype);
+           printf("\tclass ID:    %d \n", classid);
+           printf("\torder:       %d \n", order);
+           printf("\tsize:        %d \n", (int)size);
+@@ -123,7 +123,7 @@
+   printf("Status returned by HE5_SWinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+@@ -134,7 +134,7 @@
+   printf("Status returned by HE5_SWinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+@@ -145,7 +145,7 @@
+   printf("Status returned by HE5_SWinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+--- hdfeos5/samples/he5_sw_info.c.orig	2004-01-20 20:17:54.000000000 +0100
++++ hdfeos5/samples/he5_sw_info.c	2019-12-10 17:01:28.582756358 +0100
+@@ -110,7 +110,7 @@
+ 
+ 		  printf("geo fields: %s\n", fieldlist);
+ 		  for (i = 0; i < nflds; i++)
+-			printf("Rank:  %d   Data type:  %d\n", rank[i], ntype[i]);
++			printf("Rank:  %d   Data type:  %"PRId64"\n", rank[i], ntype[i]);
+ 
+ 		  free(rank);
+ 		  free(fieldlist);
+@@ -124,7 +124,7 @@
+ 
+ 		  printf("data fields: %s\n", fieldlist);
+ 		  for (i = 0; i < nflds; i++)
+-			printf("Rank:  %d   Data type:  %d\n", rank[i], ntype[i]);
++			printf("Rank:  %d   Data type:  %"PRId64"\n", rank[i], ntype[i]);
+ 
+ 		  free(rank);
+ 		  free(fieldlist);
+@@ -158,14 +158,14 @@
+ 		  /* ----------------------------- */
+ 		  status = HE5_SWfieldinfo(SWid, "Longitude", &rk, dim, &dtype, dimlist, NULL);
+ 		  printf("Longitude Rank: %d\n", rk);
+-		  printf("Longitude NumberType: %d\n", dtype);
++		  printf("Longitude NumberType: %"PRId64"\n", dtype);
+ 		  printf("Longitude Dimension List: %s\n", dimlist);	    
+ 		  for (i = 0; i < rk; i++)
+ 			printf("Dimension %d: %lu\n",i+1,(unsigned long)dim[i]);
+ 
+                   status = HE5_SWfieldinfo(SWid, "Test_string", &rk1, dim1, &dtype_char, dimlist1, NULL);
+                   printf("Test_string Rank: %d\n", rk1);
+-                  printf("Test_string NumberType: %d\n", dtype_char);
++                  printf("Test_string NumberType: %"PRId64"\n", dtype_char);
+                   printf("Test_string Dimension List: %s\n", dimlist1);
+                   for (i = 0; i < rk1; i++)
+                         printf("Dimension %d: %lu\n",i+1,(unsigned long)dim1[i]);
+@@ -175,17 +175,17 @@
+ 		  /* -------------------------------- */
+ 		  printf("Global Attribute:\n");
+ 		  status = HE5_SWattrinfo(SWid,"GlobalAttribute",&dtype1, &nelem);
+-		  printf("\t\t Data type:          %d\n", dtype1);
++		  printf("\t\t Data type:          %"PRId64"\n", dtype1);
+ 		  printf("\t\t Number of elements: %lu \n", (unsigned long)nelem);    
+  
+                   nelem = 0;
+                   status = HE5_SWattrinfo(SWid,"GLOBAL_CHAR_ATTR",&dtype1, &nelem);
+-                  printf("\t\t Data type:          %d\n", dtype1);
++                  printf("\t\t Data type:          %"PRId64"\n", dtype1);
+                   printf("\t\t The size of string: %lu \n", (unsigned long)nelem);
+ 
+                   nelem = 0;
+                   status = HE5_SWattrinfo(SWid,"GLOBAL_DOUBLE_ATTR",&dtype1, &nelem);
+-                  printf("\t\t Data type:          %d\n", dtype1);
++                  printf("\t\t Data type:          %"PRId64"\n", dtype1);
+                   printf("\t\t Number of elements: %lu \n", (unsigned long)nelem);
+ 
+ 		  nelem = 0;
+@@ -194,7 +194,7 @@
+ 		  /* ------------------------------- */
+ 		  printf("Group Attribute:\n");
+ 		  status = HE5_SWgrpattrinfo(SWid,"GroupAttribute",&dtype1,&nelem);
+-		  printf("\t\t Data type:          %d\n", dtype1);
++		  printf("\t\t Data type:          %"PRId64"\n", dtype1);
+ 		  printf("\t\t Number of elements: %lu \n", (unsigned long)nelem);    
+ 
+ 		  nelem = 777;
+@@ -203,17 +203,17 @@
+ 		  /* ------------------------------- */
+ 		  printf("Local Attribute:\n");
+ 		  status = HE5_SWlocattrinfo(SWid,"Density", "LocalAttribute_1",&dtype1,&nelem);
+-		  printf("\t\t Data type:          %d\n", dtype1);
++		  printf("\t\t Data type:          %"PRId64"\n", dtype1);
+ 		  printf("\t\t Number of elements: %lu \n", (unsigned long)nelem);    
+ 
+ 		  printf("Local Attribute:\n");
+ 		  status = HE5_SWlocattrinfo(SWid,"Longitude", "LocalAttribute_2",&dtype1,&nelem);
+-		  printf("\t\t Data type:          %d\n", dtype1);
++		  printf("\t\t Data type:          %"PRId64"\n", dtype1);
+ 		  printf("\t\t Number of elements: %lu \n", (unsigned long)nelem);    
+ 
+                   nelem = 0;
+                   status = HE5_SWlocattrinfo(SWid,"Time", "LOCAL_CHAR_ATTR",&dtype1,&nelem);
+-                  printf("\t\t Data type:          %d\n", dtype1);
++                  printf("\t\t Data type:          %"PRId64"\n", dtype1);
+                   printf("\t\t The size of string: %lu \n", (unsigned long)nelem);
+ 
+ 		  /* Inquire Global Attributes */
+--- hdfeos5/samples/he5_sw_setup.c.orig	2003-02-12 20:32:10.000000000 +0100
++++ hdfeos5/samples/he5_sw_setup.c	2019-12-10 17:51:25.706519547 +0100
+@@ -27,12 +27,12 @@
+   /* Open a new HDF-EOS swath file, "Swath.h5" */
+   /* ----------------------------------------- */
+   swfid = HE5_SWopen("Swath.h5", H5F_ACC_TRUNC);
+-  printf("File ID returned by HE5_SWopen():       %d \n", swfid);
++  printf("File ID returned by HE5_SWopen():       %"PRId64" \n", swfid);
+ 
+   /* Create the swath, "Swath1", within the file */
+   /* ------------------------------------------- */
+   SWid = HE5_SWcreate(swfid, "Swath1");
+-  printf("Swath ID returned by HE5_SWcreate():    %d \n", SWid);
++  printf("Swath ID returned by HE5_SWcreate():    %"PRId64" \n", SWid);
+ 
+   /* Define dimensions and specify their sizes */
+   /* ----------------------------------------- */
+--- hdfeos5/samples/he5_sw_subset.c.orig	2003-02-12 20:32:29.000000000 +0100
++++ hdfeos5/samples/he5_sw_subset.c	2019-12-10 17:51:57.159682484 +0100
+@@ -49,7 +49,7 @@
+ 
+ 		  regionID = HE5_SWdefboxregion(SWid, cornerlon, cornerlat, HE5_HDFE_MIDPOINT);
+ 		  printf("\n");
+-		  printf("Region ID returned by HE5_SWdefboxregion()  :          %d \n", regionID);
++		  printf("Region ID returned by HE5_SWdefboxregion()  :          %"PRId64" \n", regionID);
+ 	    
+ 		  ntype = (hid_t *)calloc(1, sizeof(hid_t) );
+ 
+@@ -78,7 +78,7 @@
+ 
+ 		  periodID = HE5_SWdeftimeperiod(SWid, start_time, stop_time, HE5_HDFE_MIDPOINT);
+ 		  printf("\n");
+-		  printf("Period ID returned by HE5_SWdeftimeperiod() :          %d \n",  periodID);
++		  printf("Period ID returned by HE5_SWdeftimeperiod() :          %"PRId64" \n",  periodID);
+ 	    
+ 		  status = HE5_SWperiodinfo(SWid, periodID, "Time", ntype, &rank, dims, &size);
+ 		  printf("Status returned by HE5_SWperiodinfo() :                %d \n",  status);
+--- hdfeos5/samples/he5_za_datainfo.c.orig	2003-06-03 20:09:03.000000000 +0200
++++ hdfeos5/samples/he5_za_datainfo.c	2019-12-10 17:57:51.877760812 +0100
+@@ -31,12 +31,12 @@
+   /* Open the HDF-EOS ZA file */
+   /* ------------------------ */
+   fid = HE5_ZAopen(FILENAME, H5F_ACC_RDONLY);
+-  printf("File ID returned by HE5_ZAopen() :         %d \n", fid);
++  printf("File ID returned by HE5_ZAopen() :         %"PRId64" \n", fid);
+     
+   /* Attach to the "ZA1" za */
+   /* ---------------------- */
+   ZAid = HE5_ZAattach(fid, OBJECT);
+-  printf("ZA ID returned by HE5_ZAattach() :      %d \n", ZAid);
++  printf("ZA ID returned by HE5_ZAattach() :      %"PRId64" \n", ZAid);
+ 
+   /* Inquire data type information for the "Spectra" field */
+   /* ----------------------------------------------------- */
+@@ -45,7 +45,7 @@
+   printf("Status returned by HE5_ZAinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+@@ -58,7 +58,7 @@
+   printf("Status returned by HE5_ZAinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+@@ -69,7 +69,7 @@
+   printf("Status returned by HE5_ZAinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+@@ -80,7 +80,7 @@
+   printf("Status returned by HE5_ZAinqdatatype() :   %d \n", status);
+   if (status != FAIL)
+ 	{
+-	  printf("\tdatatype:    %d \n", datatype);
++	  printf("\tdatatype:    %"PRId64" \n", datatype);
+ 	  printf("\tclass ID:    %d \n", classid);
+ 	  printf("\torder:       %d \n", order);
+ 	  printf("\tsize:        %d \n", (int)size);        
+--- hdfeos5/samples/he5_za_info.c.orig	2004-01-20 20:18:40.000000000 +0100
++++ hdfeos5/samples/he5_za_info.c	2019-12-10 17:58:44.894140264 +0100
+@@ -72,7 +72,7 @@
+ 
+ 		  printf("data fields: %s\n", fieldlist);
+ 		  for (i = 0; i < nflds; i++)
+-			printf("Rank:  %d   Data type:  %d\n", rank[i], ntype[i]);
++			printf("Rank:  %d   Data type:  %"PRId64"\n", rank[i], ntype[i]);
+ 
+ 		  free(rank);
+ 		  free(fieldlist);
+@@ -89,7 +89,7 @@
+ 		  /* -------------------------------- */
+ 		  printf("Global Attribute:\n");
+ 		  status = HE5_ZAattrinfo(ZAid,"GlobalAttribute",&dtype, &nelem);
+-		  printf("\t\t Data type:          %d\n", dtype);
++		  printf("\t\t Data type:          %"PRId64"\n", dtype);
+ 		  printf("\t\t Number of elements: %lu \n", (unsigned long)nelem);    
+ 
+ 		  nelem = 0;
+@@ -98,7 +98,7 @@
+ 		  /* ------------------------------- */
+ 		  printf("Group Attribute:\n");
+ 		  status = HE5_ZAgrpattrinfo(ZAid,"GroupAttribute",&dtype,&nelem);
+-		  printf("\t\t Data type:          %d\n", dtype);
++		  printf("\t\t Data type:          %"PRId64"\n", dtype);
+ 		  printf("\t\t Number of elements: %lu \n", (unsigned long)nelem);    
+ 
+ 		  nelem = 777;
+@@ -107,7 +107,7 @@
+ 		  /* ------------------------------- */
+ 		  printf("Local Attribute:\n");
+ 		  status = HE5_ZAlocattrinfo(ZAid,"Density", "LocalAttribute",&dtype,&nelem);
+-		  printf("\t\t Data type:          %d\n", dtype);
++		  printf("\t\t Data type:          %"PRId64"\n", dtype);
+ 		  printf("\t\t Number of elements: %lu \n", (unsigned long)nelem);    
+ 
+ 
+--- hdfeos5/samples/he5_za_setup.c.orig	2003-06-03 20:10:23.000000000 +0200
++++ hdfeos5/samples/he5_za_setup.c	2019-12-10 17:59:06.717355371 +0100
+@@ -24,12 +24,12 @@
+   /* Open a new HDF-EOS za file, "ZA.he5" */
+   /* ----------------------------------- */
+   zafid = HE5_ZAopen("ZA.he5", H5F_ACC_TRUNC);
+-  printf("File ID returned by HE5_ZAopen():       %d \n", zafid);
++  printf("File ID returned by HE5_ZAopen():       %"PRId64" \n", zafid);
+   
+   /* Create the ZA, "ZA1", within the file */
+   /* ------------------------------------- */
+   ZAid = HE5_ZAcreate(zafid, "ZA1");
+-  printf("ZA ID returned by HE5_ZAcreate():    %d \n", ZAid);
++  printf("ZA ID returned by HE5_ZAcreate():    %"PRId64" \n", ZAid);
+ 
+   /* Define dimensions and specify their sizes */
+   /* ----------------------------------------- */
