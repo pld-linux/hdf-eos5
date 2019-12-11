@@ -997,3 +997,300 @@
  
    /* Define dimensions and specify their sizes */
    /* ----------------------------------------- */
+--- hdfeos5/include/HE5_HdfEosDef.h.orig	2017-03-27 20:15:22.000000000 +0200
++++ hdfeos5/include/HE5_HdfEosDef.h	2019-12-11 16:02:29.100529098 +0100
+@@ -549,6 +549,10 @@
+ hid_t                HE5_EHint2hid(int invalue);
+ hid_t                HE5_EHlong2hid(long invalue);
+ int                  HE5_EHlong2int(long invalue);
++int                  HE5_EHllong2int(long long invalue);
++long                 HE5_EHllong2long(long long invalue);
++long long            HE5_EHint2llong(int invalue);
++long long            HE5_EHlong2llong(long invalue);
+ 
+ hsize_t              HE5_EHhid2hsize(hid_t invalue);
+ hsize_t              HE5_EHint2hsize(int invalue);
+@@ -557,6 +561,8 @@
+ long                 HE5_EHhsize2long(hsize_t invalue);
+ int                  HE5_EHhsize2int(hsize_t invalue);
+ hssize_t             HE5_EHhsize2hssize(hsize_t invalue);
++long long            HE5_EHhsize2llong(hsize_t invalue);
++hsize_t              HE5_EHllong2hsize(long long invalue);
+ 
+ hssize_t             HE5_EHhid2hssize(hid_t invalue);
+ hssize_t             HE5_EHint2hssize(int invalue);
+@@ -565,6 +571,8 @@
+ long                 HE5_EHhssize2long(hssize_t invalue);
+ int                  HE5_EHhssize2int(hssize_t invalue);
+ hsize_t              HE5_EHhssize2hsize(hssize_t invalue);
++long long            HE5_EHhssize2llong(hssize_t invalue);
++hssize_t             HE5_EHllong2hssize(long long invalue);
+ 
+ unsigned LONGLONG    HE5_EHint2ullong(int invalue);
+ long                 HE5_EHullong2long(unsigned LONGLONG invalue);
+--- hdfeos5/src/EHapi.c.orig	2019-12-11 15:44:35.239680034 +0100
++++ hdfeos5/src/EHapi.c	2019-12-11 16:00:43.981098579 +0100
+@@ -324,6 +324,8 @@
+ 	outvalue = HE5_EHint2long(invalue);
+   else if (sizeof(hid_t) == sizeof(long))
+ 	outvalue = invalue;
++  else if (sizeof(hid_t) == sizeof(long long))
++	outvalue = HE5_EHllong2long(invalue);
+   
+   return(outvalue);
+ }
+@@ -410,6 +410,8 @@
+ 	outvalue = invalue;
+   else if (sizeof(hid_t) == sizeof(long))
+ 	outvalue = HE5_EHlong2int(invalue);
++  else if (sizeof(hid_t) == sizeof(long long))
++	outvalue = HE5_EHllong2int(invalue);
+   
+   return(outvalue);
+ }
+@@ -447,6 +449,8 @@
+ 	outvalue = invalue;
+   else if (sizeof(hid_t) == sizeof(long))
+ 	outvalue = HE5_EHint2long(invalue);
++  else if (sizeof(hid_t) == sizeof(long long))
++	outvalue = HE5_EHint2llong(invalue);
+   
+   return(outvalue);
+ }
+@@ -485,6 +489,8 @@
+ 	outvalue = HE5_EHlong2int(invalue);
+   else if (sizeof(hid_t) == sizeof(long))
+ 	outvalue = invalue;
++  else if (sizeof(hid_t) == sizeof(long long))
++	outvalue = HE5_EHlong2llong(invalue);
+   
+   return(outvalue);
+ }
+@@ -542,6 +548,79 @@
+   return(outvalue);
+ }
+ 
++int
++HE5_EHllong2int(long long invalue)
++{
++  herr_t    status   = FAIL;
++  long      outvalue = FAIL;
++
++  status = H5Tconvert(H5T_NATIVE_LLONG, H5T_NATIVE_INT, 1, &invalue, NULL, H5P_DEFAULT);
++  if (status == FAIL)
++	{
++	  H5Epush(__FILE__, "HE5_EHllong2int", __LINE__, H5E_FUNC, H5E_CANTINIT, "Cannot convert \"long long\" to \"int\" data type.");
++	  return(status);
++	}
++
++  memmove(&outvalue,&invalue,sizeof(int));
++  return(outvalue);
++}
++
++long
++HE5_EHllong2long(long long invalue)
++{
++  herr_t    status   = FAIL;
++  long      outvalue = FAIL;
++
++  status = H5Tconvert(H5T_NATIVE_LLONG, H5T_NATIVE_LONG, 1, &invalue, NULL, H5P_DEFAULT);
++  if (status == FAIL)
++	{
++	  H5Epush(__FILE__, "HE5_EHllong2long", __LINE__, H5E_FUNC, H5E_CANTINIT, "Cannot convert \"long long\" to \"long\" data type.");
++	  return(status);
++	}
++
++  memmove(&outvalue,&invalue,sizeof(long));
++  return(outvalue);
++}
++
++long long
++HE5_EHint2llong(int invalue)
++{
++  herr_t    status   = FAIL;
++  long long outvalue = FAIL;
++  long long buf      = FAIL;
++
++  memmove(&buf,&invalue,sizeof(int));
++
++  status = H5Tconvert(H5T_NATIVE_INT, H5T_NATIVE_LLONG, 1, &buf, NULL, H5P_DEFAULT);
++  if (status == FAIL)
++	{
++	  H5Epush(__FILE__, "HE5_EHint2llong", __LINE__, H5E_FUNC, H5E_CANTINIT, "Cannot convert \"int\" to \"long long\" data type.");
++	  return(status);
++	}
++
++  memmove(&outvalue,&buf,sizeof(long long));
++  return(outvalue);
++}
++
++long long
++HE5_EHlong2llong(long invalue)
++{
++  herr_t    status   = FAIL;
++  long long outvalue = FAIL;
++  long long buf      = FAIL;
++
++  memmove(&buf,&invalue,sizeof(long));
++
++  status = H5Tconvert(H5T_NATIVE_LONG, H5T_NATIVE_LLONG, 1, &buf, NULL, H5P_DEFAULT);
++  if (status == FAIL)
++	{
++	  H5Epush(__FILE__, "HE5_EHlong2llong", __LINE__, H5E_FUNC, H5E_CANTINIT, "Cannot convert \"long\" to \"long long\" data type.");
++	  return(status);
++	}
++
++  memmove(&outvalue,&buf,sizeof(long long));
++  return(outvalue);
++}
+ 
+ /*----------------------------------------------------------------------------|
+ |  BEGIN_PROLOG                                                               |
+@@ -576,6 +655,8 @@
+ 	outvalue = HE5_EHint2hsize(invalue);
+   else if (sizeof(hid_t) == sizeof(long) )
+ 	outvalue = HE5_EHlong2hsize(invalue);
++  else if (sizeof(hid_t) == sizeof(long long))
++	outvalue = HE5_EHllong2hsize(invalue);
+ 
+   return(outvalue);  
+ }
+@@ -728,6 +809,8 @@
+ 	outvalue = HE5_EHhsize2int(invalue);
+   else if (sizeof(hid_t) == sizeof(long) )
+ 	outvalue = HE5_EHhsize2long(invalue);
++  else if (sizeof(hid_t) == sizeof(long long))
++        outvalue = HE5_EHhsize2llong(invalue);
+ 
+   return(outvalue);
+ }
+@@ -843,6 +926,55 @@
+   return(outvalue);
+ }
+ 
++hsize_t
++HE5_EHllong2hsize(long long invalue)
++{
++
++  herr_t   status       = FAIL;
++  void     *buf         = NULL;
++  hsize_t  outvalue     = 0;
++  size_t   maxsize      = 0;
++
++  maxsize = MAX(H5Tget_size(H5T_NATIVE_LLONG),H5Tget_size(H5T_NATIVE_HSIZE));
++  buf = calloc(1,maxsize);
++  memmove(buf,&invalue,sizeof(long long));
++
++  status = H5Tconvert(H5T_NATIVE_LLONG, H5T_NATIVE_HSIZE, 1, buf, NULL, H5P_DEFAULT);
++  if (status == FAIL)
++	{
++	  H5Epush(__FILE__, "HE5_EHllong2hsize", __LINE__, H5E_FUNC, H5E_CANTINIT, "Cannot convert \"long long\" to \"hsize_t\" data type.");
++	  return(status);
++	}
++
++  memmove(&outvalue,buf,H5Tget_size(H5T_NATIVE_HSIZE));
++  free(buf);
++  return(outvalue);
++}
++
++long long
++HE5_EHhsize2llong(hsize_t invalue)
++{
++  herr_t   status       = FAIL;
++  void     *buf         = NULL;
++  long long outvalue    = FAIL;
++  size_t   maxsize      = 0;
++
++  maxsize = MAX(H5Tget_size(H5T_NATIVE_LLONG),H5Tget_size(H5T_NATIVE_HSIZE));
++  buf = calloc(1,maxsize);
++  memmove(buf,&invalue,H5Tget_size(H5T_NATIVE_HSIZE));
++
++  status = H5Tconvert(H5T_NATIVE_HSIZE, H5T_NATIVE_LLONG, 1, buf, NULL, H5P_DEFAULT);
++  if (status == FAIL)
++	{
++	  H5Epush(__FILE__, "HE5_EHhsize2llong", __LINE__, H5E_FUNC, H5E_CANTINIT, "Cannot convert \"hsize_t\" to \"long long\" data type.");
++	  return(status);
++	}
++
++  memmove(&outvalue,buf,H5Tget_size(H5T_NATIVE_LLONG));
++  free(buf);
++  return(outvalue);
++}
++
+ /*----------------------------------------------------------------------------|
+ |  BEGIN_PROLOG                                                               |
+ |                                                                             |
+@@ -877,6 +1009,8 @@
+ 	outvalue = HE5_EHint2hssize(invalue);
+   else if (sizeof(hid_t) == sizeof(long) )
+ 	outvalue = HE5_EHlong2hssize(invalue);
++  else if (sizeof(hid_t) == sizeof(long long))
++	outvalue = HE5_EHllong2hssize(invalue);
+ 
+   return(outvalue);
+ }
+@@ -1027,6 +1161,8 @@
+ 	outvalue = HE5_EHhssize2int(invalue);
+   else if (sizeof(hid_t) == sizeof(long) )
+ 	outvalue = HE5_EHhssize2long(invalue);
++  else if (sizeof(hid_t) == sizeof(long long))
++        outvalue = HE5_EHhssize2llong(invalue);
+   
+   return(outvalue);  
+ }
+@@ -1142,6 +1278,55 @@
+   return(outvalue);
+ }
+ 
++hssize_t
++HE5_EHllong2hssize(long long invalue)
++{
++
++  herr_t   status      = FAIL;
++  void     *buf        = NULL;
++  hssize_t outvalue    = FAIL;
++  size_t   maxsize     = 0;
++
++  maxsize = MAX(sizeof(long long),H5Tget_size(H5T_NATIVE_HSSIZE));
++  buf = calloc(1,maxsize);
++  memmove(buf,&invalue,sizeof(long long));
++
++  status = H5Tconvert(H5T_NATIVE_LLONG, H5T_NATIVE_HSSIZE, 1, buf, NULL, H5P_DEFAULT);
++  if (status == FAIL)
++	{
++	  H5Epush(__FILE__, "HE5_EHllong2hssize", __LINE__, H5E_FUNC, H5E_CANTINIT, "Cannot convert \"long long\" to \"hssize_t\" data type.");
++	  return(status);
++	}
++
++  memmove(&outvalue,buf,H5Tget_size(H5T_NATIVE_HSSIZE));
++  free(buf);
++  return(outvalue);
++}
++
++long long
++HE5_EHhssize2llong(hssize_t invalue)
++{
++  herr_t   status       = FAIL;
++  void     *buf         = NULL;
++  long long outvalue    = FAIL;
++  size_t   maxsize      = 0;
++
++  maxsize = MAX(H5Tget_size(H5T_NATIVE_LLONG),H5Tget_size(H5T_NATIVE_HSSIZE));
++  buf = calloc(1,maxsize);
++  memmove(buf,&invalue,H5Tget_size(H5T_NATIVE_HSSIZE));
++
++  status = H5Tconvert(H5T_NATIVE_HSSIZE, H5T_NATIVE_LLONG, 1, buf, NULL, H5P_DEFAULT);
++  if (status == FAIL)
++	{
++	  H5Epush(__FILE__, "HE5_EHhssize2llong", __LINE__, H5E_FUNC, H5E_CANTINIT, "Cannot convert \"hssize_t\" to \"long long\" data type.");
++	  return(status);
++	}
++
++  memmove(&outvalue,buf,H5Tget_size(H5T_NATIVE_LLONG));
++  free(buf);
++  return(outvalue);
++}
++
+ /*----------------------------------------------------------------------------|
+ |  BEGIN_PROLOG                                                               |
+ |                                                                             |
