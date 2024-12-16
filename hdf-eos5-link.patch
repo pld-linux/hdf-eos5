@@ -1,6 +1,6 @@
---- hdfeos5/src/Makefile.am.orig	2007-03-29 18:59:47.000000000 +0200
-+++ hdfeos5/src/Makefile.am	2012-12-23 16:17:19.668209682 +0100
-@@ -10,10 +10,10 @@
+--- hdf-eos5-2.0/src/Makefile.am.orig	2024-12-15 09:11:05.253961392 +0100
++++ hdf-eos5-2.0/src/Makefile.am	2024-12-15 09:11:46.330405529 +0100
+@@ -10,10 +10,10 @@ AM_CPPFLAGS=-I$(top_srcdir)/include/
  
  # Set LDFLAGS to allow the HDF-EOS library to use extern variables from
  # HDF5
@@ -11,9 +11,9 @@
 +libhe5_hdfeos_la_LIBADD=$(top_builddir)/gctp/src/libhe5_Gctp.la -lhdf5_hl -lhdf5
  
  # Source files for library
- libhe5_hdfeos_la_SOURCES=EHapi.c GDapi.c PTapi.c SWapi.c TSapi.c ZAapi.c
---- hdfeos5/gctp/src/Makefile.am.orig	2012-12-23 16:17:10.788209866 +0100
-+++ hdfeos5/gctp/src/Makefile.am	2012-12-23 16:17:06.164876631 +0100
+ libhe5_hdfeos_la_SOURCES=EHapi.c GDapi.c PTapi.c SWapi.c TSapi.c ZAapi.c HE5common.c
+--- hdf-eos5-2.0/gctp/src/Makefile.am.orig	2021-04-22 01:06:56.000000000 +0200
++++ hdf-eos5-2.0/gctp/src/Makefile.am	2024-12-15 09:12:37.443461959 +0100
 @@ -4,7 +4,7 @@
  include $(top_srcdir)/config/include.am
  
@@ -23,8 +23,8 @@
  
  ## Normally DEFAULT_INCLUDES is supplied by Automake, but one of the
  ## directories included by default is $(top_builddir)/include, which
-@@ -17,7 +17,7 @@
- INCLUDES=-I$(srcdir)/../include/
+@@ -17,7 +17,7 @@ DEFAULT_INCLUDES = -I. -I$(srcdir)
+ AM_CPPFLAGS=-I$(srcdir)/../include/
  
  # Library source files
 -libGctp_la_SOURCES = gctp.c alberfor.c alberinv.c alconfor.c alconinv.c      \

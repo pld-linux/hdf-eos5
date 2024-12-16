@@ -1,16 +1,16 @@
 sizeof(char*) obviously doesn't work for C string...
---- hdfeos5/src/GDapi.c.orig	2017-11-13 17:02:42.000000000 +0100
-+++ hdfeos5/src/GDapi.c	2019-12-10 16:29:45.406400082 +0100
-@@ -15,6 +15,8 @@
- #include <ease.h>
- #include <math.h>
+--- hdf-eos5-2.0/src/GDapi.c.orig	2024-12-15 09:28:35.178273464 +0100
++++ hdf-eos5-2.0/src/GDapi.c	2024-12-15 09:37:32.792027627 +0100
+@@ -20,6 +20,8 @@
+ #include <stdio.h>
+ #include <HE5_GctpFunc.h>
  
 +#define HE5_EN_FILENAME_LEN 300
 +
  #define	HE5_GRIDOFFSET 671088642    /* (2**26)*10 + 2  */
  #define HE5_NGRID            400
  #define HE5_NGRIDREGN        512
-@@ -14921,8 +14927,8 @@
+@@ -15025,8 +15027,8 @@ HE5_GDll2ij(int projcode, int zonecode,
    if (projcode != HE5_GCTP_GEO)
      {
  
@@ -19,21 +19,16 @@ sizeof(char*) obviously doesn't work for C string...
 +      eastFile = (char *) malloc(HE5_EN_FILENAME_LEN*sizeof(char));
 +      northFile = (char *) malloc(HE5_EN_FILENAME_LEN*sizeof(char));
  
-       HE5_GDgetEastAndNorthFiles(eastFile,northFile); 
+       HE5_GDgetEastAndNorthFiles(eastFile,northFile);
  
-@@ -29887,11 +29893,11 @@
+@@ -29957,8 +29959,8 @@ void HE5_GDgetEastAndNorthFiles(char *ea
+ 	lastables[(int)strlen(ptr)] = '\0';
          /*strcpy(lastables, ptr);*/
  
- #if defined(CYGWIN) || defined(LINUX) || defined(LINUX32) || defined(LINUX64) || defined(MACINTEL) || defined(MACINTEL32) || defined(MACINTEL64) || defined(DECALPHA)
--        snprintf( eastFile,   sizeof(eastFile),"%s/nad27sp_le", lastables );    /* use littlt endian binary files */
--        snprintf( northFile,  sizeof(northFile),"%s/nad83sp_le", lastables );
-+        snprintf( eastFile,   HE5_EN_FILENAME_LEN,"%s/nad27sp_le", lastables );    /* use littlt endian binary files */
-+        snprintf( northFile,  HE5_EN_FILENAME_LEN,"%s/nad83sp_le", lastables );
- #else
 -        snprintf( eastFile, sizeof(eastFile), "%s/nad27sp_be", lastables );    /* use big endian binary files */
 -        snprintf( northFile,sizeof(northFile), "%s/nad83sp_be", lastables );
 +        snprintf( eastFile, HE5_EN_FILENAME_LEN, "%s/nad27sp_be", lastables );    /* use big endian binary files */
 +        snprintf( northFile,HE5_EN_FILENAME_LEN, "%s/nad83sp_be", lastables );
- #endif
  
  
+     }

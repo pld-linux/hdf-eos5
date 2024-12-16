@@ -1,23 +1,19 @@
 #
 # Conditional build:
 %bcond_without	szip		# SZIP support (must match hdf build bcond)
-%bcond_without	tests		# don't perform "make check"
+%bcond_without	tests		# unit tests
 #
 Summary:	HDF-EOS 5 library
 Summary(pl.UTF-8):	Biblioteka HDF-EOS 5
 Name:		hdf-eos5
-Version:	5.1.16
+Version:	5.2.0
 Release:	1
 License:	MIT-like
 Group:		Libraries
-Source0:	https://observer.gsfc.nasa.gov/ftp/edhs/hdfeos5/latest_release/HDF-EOS%{version}.tar.Z
-# Source0-md5:	c4a3286f38a2faafc840017af4bd39d6
-# needed for auto* rebuild
-Source1:	https://observer.gsfc.nasa.gov/ftp/edhs/hdfeos5/latest_release/HDF-EOS%{version}_TESTDRIVERS.tar.Z
-# Source1-md5:	498ca8c6634c391d38e126450d8d218d
-Patch0:		%{name}-cc.patch
+Source0:	https://git.earthdata.nasa.gov/projects/DAS/repos/hdfeos5/raw/hdf-eos5-2.0-src.tar.gz?at=refs/heads/HDFEOS5_2.0#/hdf-eos5-2.0-src.tar.gz
+# Source0-md5:	151c04a8e7660f868da9fef0fa6c631a
 Patch1:		%{name}-link.patch
-Patch2:		%{name}-tests.patch
+Patch2:		%{name}-fortran.patch
 Patch3:		%{name}-types.patch
 Patch4:		%{name}-bufsize.patch
 URL:		http://hdfeos.org/software/library.php#HDF-EOS5
@@ -25,10 +21,10 @@ BuildRequires:	autoconf >= 2.59
 BuildRequires:	automake
 BuildRequires:	hdf5-devel >= 1.8.19
 BuildRequires:	libtool
-%{?with_szip:BuildRequires:	szip-devel >= 2.1.1}
+%{?with_szip:BuildRequires:	libaec-szip-devel >= 1.0}
 BuildRequires:	zlib-devel
 Requires:	hdf5 >= 1.8.19
-%{?with_szip:Requires:	szip >= 2.1.1}
+%{?with_szip:Requires:	libaec-szip >= 1.0}
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -57,7 +53,7 @@ Summary(pl.UTF-8):	Pliki nagłówkowe biblioteki HDF-EOS 5
 Group:		Development/Libraries
 Requires:	%{name} = %{version}-%{release}
 Requires:	hdf5-devel >= 1.8.19
-%{?with_szip:Requires:	szip-devel >= 2.1.1}
+%{?with_szip:Requires:	libaec-szip-devel >= 1.0}
 Requires:	zlib-devel
 
 %description devel
@@ -79,12 +75,11 @@ Static HDF-EOS 5 library.
 Statyczna biblioteka HDF-EOS 5.
 
 %prep
-%setup -q -n hdfeos5 -b1
-%patch0 -p1
-%patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
+%setup -q -n hdf-eos5-2.0
+%patch -P1 -p1
+%patch -P2 -p1
+%patch -P3 -p1
+%patch -P4 -p1
 
 %build
 %{__libtoolize}
@@ -92,12 +87,12 @@ Statyczna biblioteka HDF-EOS 5.
 %{__autoconf}
 %{__autoheader}
 %{__automake}
-CPPFLAGS="%{rpmcppflags} -DH5_USE_16_API"
+FFLAGS="%{rpmcflags} -fallow-argument-mismatch"
 # hdf5 installs in plain /usr/include, but we want to isolate headers
 # from system include dir (hdf-eos2 uses the same filenames)
 %configure \
 	--includedir=%{_includedir}/he5 \
-	--enable-install-include \
+	--enable-fortran \
 	--enable-shared \
 	%{?with_szip:--with-szlib}
 
@@ -120,7 +115,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(644,root,root,755)
-%doc doc/{HDFEOS-DEFINITION.TXT,README}
+%doc doc/README
 %attr(755,root,root) %{_libdir}/libhe5_Gctp.so.*.*.*
 %attr(755,root,root) %ghost %{_libdir}/libhe5_Gctp.so.0
 %attr(755,root,root) %{_libdir}/libhe5_hdfeos.so.*.*.*
@@ -135,16 +130,6 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_includedir}/he5
 %{_includedir}/he5/HE5_GctpFunc.h
 %{_includedir}/he5/HE5_HdfEosDef.h
-%{_includedir}/he5/HE5_config.h
-%{_includedir}/he5/bcea.h
-%{_includedir}/he5/cfortHdf.h
-%{_includedir}/he5/cproj.h
-%{_includedir}/he5/cproj_prototypes.h
-%{_includedir}/he5/ease.h
-%{_includedir}/he5/gctp_prototypes.h
-%{_includedir}/he5/isin.h
-%{_includedir}/he5/proj.h
-%{_includedir}/he5/tutils.h
 
 %files static
 %defattr(644,root,root,755)

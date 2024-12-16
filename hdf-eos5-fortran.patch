@@ -1,0 +1,14 @@
+Obey line length limit
+--- hdf-eos5-2.0/samples/he5_gd_writedataF_32.f.orig	2021-04-22 01:06:56.000000000 +0200
++++ hdf-eos5-2.0/samples/he5_gd_writedataF_32.f	2024-12-15 14:52:44.212908999 +0100
+@@ -77,8 +77,8 @@ c     ------------------------------
+             
+             attr4 = "ABCDEFGH"
+             count(1) = 8
+-            status = he5_gdwrattr(gdid,"GLOBAL_CHAR_ATTR",HE5T_NATIVE_CHAR,
+-     1           count,attr4)
++            status = he5_gdwrattr(gdid,"GLOBAL_CHAR_ATTR",
++     1           HE5T_NATIVE_CHAR,count,attr4)
+             write(*,*) 'Status returned by he5_gdwrattr():  ',status
+ 
+             attr4 = "111"
