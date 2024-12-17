@@ -1,0 +1,10 @@
+--- hdf-eos5-2.0/configure.ac.orig	2021-04-22 01:06:56.000000000 +0200
++++ hdf-eos5-2.0/configure.ac	2024-12-17 05:42:39.440194238 +0100
+@@ -274,6 +274,7 @@ AS_IF(
+         AC_TRY_RUN(
+             [
+                 #include <stddef.h>
++                #include <stdlib.h>
+                 #include <szlib.h>
+ 
+                 int main(void)

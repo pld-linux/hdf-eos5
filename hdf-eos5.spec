@@ -12,6 +12,7 @@ License:	MIT-like
 Group:		Libraries
 Source0:	https://git.earthdata.nasa.gov/projects/DAS/repos/hdfeos5/raw/hdf-eos5-2.0-src.tar.gz?at=refs/heads/HDFEOS5_2.0#/hdf-eos5-2.0-src.tar.gz
 # Source0-md5:	151c04a8e7660f868da9fef0fa6c631a
+Patch0:		%{name}-includes.patch
 Patch1:		%{name}-link.patch
 Patch2:		%{name}-fortran.patch
 Patch3:		%{name}-types.patch
@@ -76,6 +77,7 @@ Statyczna biblioteka HDF-EOS 5.
 
 %prep
 %setup -q -n hdf-eos5-2.0
+%patch -P0 -p1
 %patch -P1 -p1
 %patch -P2 -p1
 %patch -P3 -p1
